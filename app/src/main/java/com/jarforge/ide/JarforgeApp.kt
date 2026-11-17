@@ -3,7 +3,15 @@ package com.jarforge.ide
 import android.app.Application
 
 /**
- * Application entry point. Intentionally empty in Stage 1.
- * Later stages can initialise shared services here.
+ * Application entry point. Owns the manual dependency container.
  */
-class JarforgeApp : Application()
+class JarforgeApp : Application() {
+
+    lateinit var container: AppContainer
+        private set
+
+    override fun onCreate() {
+        super.onCreate()
+        container = AppContainer(applicationContext)
+    }
+}
