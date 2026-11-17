@@ -30,13 +30,14 @@ jobs:
           cache-disabled: true
 
       - name: Set up Android SDK
-        uses: android-actions/setup-android@v3
+        uses: android-actions/setup-android@v4
+        with:
+          packages: 'platform-tools'
 
-      - name: Prepare Android SDK (licenses, platform 36, build-tools 36.0.0)
+      - name: Prepare Android SDK
         run: |
-          yes | sdkmanager --licenses > /dev/null || true
           sdkmanager "platforms;android-36" "build-tools;36.0.0"
-          sdkmanager --list_installed | grep -E "platforms;android-36 |build-tools;36.0.0"
+          sdkmanager --list_installed | grep -E 'platforms;android-36|build-tools;36.0.0'
 
       - name: Generate Gradle wrapper
         run: gradle wrapper --gradle-version 8.13 --distribution-type bin
@@ -54,7 +55,7 @@ jobs:
           path: app/build/outputs/apk/debug/*.apk
           if-no-files-found: error
 
-      - name: Upload generated Gradle wrapper (optional)
+      - name: Upload generated Gradle wrapper
         if: always()
         uses: actions/upload-artifact@v7
         with:
