@@ -1,3 +1,4 @@
+
 name: Build Debug APK
 
 on:
@@ -27,7 +28,8 @@ jobs:
         with:
           gradle-version: "8.13"
           cache-disabled: true
-           - name: Set up Android SDK
+
+      - name: Set up Android SDK
         uses: android-actions/setup-android@v3
 
       - name: Prepare Android SDK (licenses, platform 36, build-tools 36.0.0)
@@ -63,3 +65,4 @@ jobs:
             gradle/wrapper/gradle-wrapper.jar
             gradle/wrapper/gradle-wrapper.properties
           if-no-files-found: warn
+          
