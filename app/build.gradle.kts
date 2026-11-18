@@ -1,15 +1,16 @@
-import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
-val releaseStoreFile = System.getenv("JARFORGE_KEYSTORE_PATH") ?: "missing-keystore.jks"
-val releaseStorePassword = System.getenv("JARFORGE_STORE_PASSWORD").orEmpty()
-val releaseKeyAlias = System.getenv("JARFORGE_KEY_ALIAS").orEmpty()
-val releaseKeyPassword = System.getenv("JARFORGE_KEY_PASSWORD").orEmpty()
+import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
 }
+
+val releaseStoreFile = System.getenv("JARFORGE_KEYSTORE_PATH") ?: "missing-keystore.jks"
+val releaseStorePassword = System.getenv("JARFORGE_STORE_PASSWORD").orEmpty()
+val releaseKeyAlias = System.getenv("JARFORGE_KEY_ALIAS").orEmpty()
+val releaseKeyPassword = System.getenv("JARFORGE_KEY_PASSWORD").orEmpty()
 
 android {
     namespace = "com.jarforge.ide"
