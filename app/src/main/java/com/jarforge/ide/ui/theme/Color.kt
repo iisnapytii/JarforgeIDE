@@ -14,4 +14,13 @@ object JarforgeColors {
     // Text colors (added for readability; not in the original spec)
     val TextPrimary = Color(0xFFE6EDF3)
     val TextSecondary = Color(0xFF8B949E)
+
+    // Loader accents (Part 2B)
+    val LoaderFabric = Blue
+    val LoaderNeoForge = Purple
+    val LoaderForge = Color(0xFFE5A34A)
+
+    // Status colors (Part 2B)
+    val Warning = Color(0xFFD29922)
+    val Danger = Color(0xFFF85149)
 }
