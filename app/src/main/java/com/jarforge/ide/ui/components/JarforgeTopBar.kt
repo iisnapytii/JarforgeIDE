@@ -21,12 +21,17 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.jarforge.ide.R
 
-/** Compact top bar in the style of the approved editor reference. */
+/**
+ * Compact top bar in the style of the approved editor reference.
+ * Pass [onBack] to show a Back button before the title.
+ */
 @Composable
 fun JarforgeTopBar(
     title: String,
     modifier: Modifier = Modifier,
+    onBack: (() -> Unit)? = null,
     actions: @Composable RowScope.() -> Unit = {}
 ) {
     Column(
@@ -39,9 +44,16 @@ fun JarforgeTopBar(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(56.dp)
-                .padding(start = 16.dp, end = 4.dp),
+                .padding(start = if (onBack != null) 4.dp else 16.dp, end = 4.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
+            if (onBack != null) {
+                TopBarIconButton(
+                    iconRes = R.drawable.ic_arrow_back,
+                    contentDescription = "Back",
+                    onClick = onBack
+                )
+            }
             Text(
                 text = title,
                 style = MaterialTheme.typography.titleLarge,

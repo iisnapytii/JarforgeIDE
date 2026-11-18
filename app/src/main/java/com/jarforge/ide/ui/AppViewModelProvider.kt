@@ -7,6 +7,7 @@ import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.jarforge.ide.AppContainer
 import com.jarforge.ide.JarforgeApp
+import com.jarforge.ide.feature.newproject.NewProjectViewModel
 import com.jarforge.ide.feature.projects.ProjectsViewModel
 
 @Composable
@@ -21,5 +22,10 @@ object AppViewModelProvider {
     fun projectsFactory(container: AppContainer): ViewModelProvider.Factory =
         viewModelFactory {
             initializer { ProjectsViewModel(container.projectRepository) }
+        }
+
+    fun newProjectFactory(container: AppContainer): ViewModelProvider.Factory =
+        viewModelFactory {
+            initializer { NewProjectViewModel(container.projectRepository) }
         }
 }
