@@ -72,9 +72,14 @@ fun TopBarIconButton(
     iconRes: Int,
     contentDescription: String,
     onClick: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true
 ) {
-    IconButton(onClick = onClick, modifier = modifier) {
+    IconButton(
+        onClick = onClick,
+        modifier = modifier,
+        enabled = enabled
+    ) {
         Icon(
             painter = painterResource(iconRes),
             contentDescription = contentDescription,
