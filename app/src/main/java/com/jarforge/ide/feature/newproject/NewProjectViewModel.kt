@@ -153,8 +153,10 @@ class NewProjectViewModel(
             return
         }
 
+        // Keep the previous submission error visible during retries. It is cleared
+        // when the user edits a field, or when creation succeeds.
         _uiState.update {
-            it.copy(showAllErrors = true, isCreating = true, submitError = null)
+            it.copy(showAllErrors = true, isCreating = true)
         }
 
         val request = NewProjectRequest(

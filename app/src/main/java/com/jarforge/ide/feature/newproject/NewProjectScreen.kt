@@ -188,6 +188,15 @@ fun NewProjectScreen(onBack: () -> Unit) {
                 )
             }
 
+            val submitError = state.submitError
+            if (submitError != null) {
+                Text(
+                    text = submitError,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = JarforgeColors.Danger
+                )
+            }
+
             Button(
                 onClick = {
                     focusManager.clearFocus()
@@ -209,15 +218,6 @@ fun NewProjectScreen(onBack: () -> Unit) {
                 } else {
                     Text("Create project")
                 }
-            }
-
-            val submitError = state.submitError
-            if (submitError != null) {
-                Text(
-                    text = submitError,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = JarforgeColors.Danger
-                )
             }
         }
     }
