@@ -2,6 +2,7 @@ package com.jarforge.ide.feature.projects
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -13,12 +14,18 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
@@ -34,10 +41,16 @@ import com.jarforge.ide.ui.theme.JarforgeColors
 import java.text.DateFormat
 import java.util.Date
 
-/** Read-only project card. Open and manage actions arrive in a later stage. */
+/**
+ * Project card. Tapping the card opens the project in the editor;
+ * the overflow menu offers Rename and Delete.
+ */
 @Composable
 fun ProjectCard(
     project: Project,
+    onClick: () -> Unit,
+    onRename: () -> Unit,
+    onDelete: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val accent = loaderColor(project.loader)
@@ -55,7 +68,11 @@ fun ProjectCard(
         color = JarforgeColors.Panel,
         border = BorderStroke(1.dp, JarforgeColors.Border)
     ) {
-        Column(modifier = Modifier.padding(16.dp)) {
+        Column(
+            modifier = Modifier
+                .clickable(onClick = onClick)
+                .padding(16.dp)
+        ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Box(
                     modifier = Modifier
@@ -89,6 +106,8 @@ fun ProjectCard(
                 }
                 Spacer(modifier = Modifier.width(8.dp))
                 LoaderBadge(loader = project.loader)
+                Spacer(modifier = Modifier.width(4.dp))
+                CardMenu(onRename = onRename, onDelete = onDelete)
             }
 
             Spacer(modifier = Modifier.height(12.dp))
@@ -128,10 +147,12 @@ fun ProjectCard(
     }
 }
 
+/** A damaged project cannot be opened; it can only be deleted. */
 @Composable
 fun DamagedProjectCard(
     directoryName: String,
     reason: String,
+    onDelete: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     Surface(
@@ -141,7 +162,7 @@ fun DamagedProjectCard(
         border = BorderStroke(1.dp, JarforgeColors.Warning.copy(alpha = 0.6f))
     ) {
         Row(
-            modifier = Modifier.padding(16.dp),
+            modifier = Modifier.padding(start = 16.dp, top = 16.dp, bottom = 16.dp, end = 8.dp),
             verticalAlignment = Alignment.Top
         ) {
             Icon(
@@ -171,6 +192,52 @@ fun DamagedProjectCard(
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
+            CardMenu(onDelete = onDelete)
+        }
+    }
+}
+
+/** Overflow menu of a card. Rename is shown only when [onRename] is provided. */
+@Composable
+private fun CardMenu(
+    onDelete: () -> Unit,
+    modifier: Modifier = Modifier,
+    onRename: (() -> Unit)? = null
+) {
+    var expanded by remember { mutableStateOf(false) }
+
+    Box(modifier = modifier) {
+        IconButton(
+            onClick = { expanded = true },
+            modifier = Modifier.size(36.dp)
+        ) {
+            Icon(
+                painter = painterResource(R.drawable.ic_more_vert),
+                contentDescription = "Project actions",
+                tint = JarforgeColors.TextSecondary,
+                modifier = Modifier.size(20.dp)
+            )
+        }
+        DropdownMenu(
+            expanded = expanded,
+            onDismissRequest = { expanded = false }
+        ) {
+            if (onRename != null) {
+                DropdownMenuItem(
+                    text = { Text("Rename") },
+                    onClick = {
+                        expanded = false
+                        onRename()
+                    }
+                )
+            }
+            DropdownMenuItem(
+                text = { Text("Delete", color = JarforgeColors.Danger) },
+                onClick = {
+                    expanded = false
+                    onDelete()
+                }
+            )
         }
     }
 }

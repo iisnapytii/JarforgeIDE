@@ -7,6 +7,7 @@ import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.jarforge.ide.AppContainer
 import com.jarforge.ide.JarforgeApp
+import com.jarforge.ide.feature.editor.EditorViewModel
 import com.jarforge.ide.feature.newproject.NewProjectViewModel
 import com.jarforge.ide.feature.projects.ProjectsViewModel
 
@@ -27,5 +28,10 @@ object AppViewModelProvider {
     fun newProjectFactory(container: AppContainer): ViewModelProvider.Factory =
         viewModelFactory {
             initializer { NewProjectViewModel(container.projectRepository) }
+        }
+
+    fun editorFactory(container: AppContainer, projectId: String): ViewModelProvider.Factory =
+        viewModelFactory {
+            initializer { EditorViewModel(container.projectRepository, projectId) }
         }
 }

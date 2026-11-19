@@ -40,7 +40,7 @@ import com.jarforge.ide.ui.theme.JarforgeColors
 fun ProjectsScreen(
     onNewProject: () -> Unit,
     onOpenSettings: () -> Unit,
-    onOpenEditor: () -> Unit
+    onOpenProject: (projectId: String) -> Unit
 ) {
     val container = rememberAppContainer()
     val viewModel: ProjectsViewModel = viewModel(
@@ -50,7 +50,7 @@ fun ProjectsScreen(
     var menuExpanded by remember { mutableStateOf(false) }
 
     // Runs each time this screen enters composition, including when
-    // returning from the New Project screen, so the list stays current.
+    // returning from the New Project screen or the editor, so the list stays current.
     LaunchedEffect(Unit) { viewModel.refresh() }
 
     val visible = state.visibleEntries
@@ -82,13 +82,6 @@ fun ProjectsScreen(
                                 onClick = {
                                     menuExpanded = false
                                     onOpenSettings()
-                                }
-                            )
-                            DropdownMenuItem(
-                                text = { Text("Editor (preview)") },
-                                onClick = {
-                                    menuExpanded = false
-                                    onOpenEditor()
                                 }
                             )
                         }
@@ -155,10 +148,16 @@ fun ProjectsScreen(
                     ) {
                         items(items = visible, key = { entry -> entryKey(entry) }) { entry ->
                             when (entry) {
-                                is ProjectEntry.Valid -> ProjectCard(project = entry.project)
+                                is ProjectEntry.Valid -> ProjectCard(
+                                    project = entry.project,
+                                    onClick = { onOpenProject(entry.project.id) },
+                                    onRename = { viewModel.onRenameRequested(entry.project) },
+                                    onDelete = { viewModel.onDeleteRequested(entry) }
+                                )
                                 is ProjectEntry.Damaged -> DamagedProjectCard(
                                     directoryName = entry.directoryName,
-                                    reason = entry.reason
+                                    reason = entry.reason,
+                                    onDelete = { viewModel.onDeleteRequested(entry) }
                                 )
                             }
                         }
@@ -166,6 +165,21 @@ fun ProjectsScreen(
                 }
             }
         }
+    }
+
+    when (val dialog = state.dialog) {
+        is ProjectDialog.Rename -> RenameProjectDialog(
+            state = dialog,
+            onInputChange = viewModel::onRenameInputChange,
+            onConfirm = viewModel::onRenameConfirm,
+            onDismiss = viewModel::onDialogDismiss
+        )
+        is ProjectDialog.Delete -> DeleteProjectDialog(
+            state = dialog,
+            onConfirm = viewModel::onDeleteConfirm,
+            onDismiss = viewModel::onDialogDismiss
+        )
+        null -> Unit
     }
 }
 

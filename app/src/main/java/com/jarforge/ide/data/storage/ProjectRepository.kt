@@ -1,6 +1,7 @@
 package com.jarforge.ide.data.storage
 
 import com.jarforge.ide.data.model.FileEntry
+import com.jarforge.ide.data.model.FilePreview
 import com.jarforge.ide.data.model.MinecraftVersions
 import com.jarforge.ide.data.model.NewProjectRequest
 import com.jarforge.ide.data.model.Project
@@ -12,6 +13,7 @@ import com.jarforge.ide.domain.ProjectNaming
 import com.jarforge.ide.domain.ProjectValidators
 import java.io.File
 import java.io.IOException
+import java.nio.file.Files
 import java.util.UUID
 
 /**
@@ -170,26 +172,79 @@ class ProjectRepository(
     fun deleteProject(id: String): Result<Unit> = runCatching {
         synchronized(lock) {
             val dir = storage.projectDir(id)
+            deleteProjectDirectorySafely(dir)
+        }
+    }
 
-            if (!dir.isDirectory) {
-                throw ProjectException("Project not found.")
+    /**
+     * Deletes a damaged project folder by its direct child name.
+     * Unlike [deleteProject], this accepts names that are not valid project IDs,
+     * but it never accepts paths, hidden/internal folders, or symbolic links.
+     */
+    fun deleteDamagedProject(directoryName: String): Result<Unit> = runCatching {
+        synchronized(lock) {
+            storage.ensureRoot()
+
+            if (
+                directoryName.isBlank() ||
+                directoryName == "." ||
+                directoryName == ".." ||
+                directoryName.startsWith(".") ||
+                directoryName.startsWith(ProjectStorage.DELETING_PREFIX) ||
+                directoryName.contains('/') ||
+                directoryName.contains('\\')
+            ) {
+                throw ProjectException("Invalid project directory.")
             }
 
-            val doomed = File(
-                storage.rootDir,
-                "${ProjectStorage.DELETING_PREFIX}$id"
-            )
+            val root = storage.rootDir.canonicalFile
+            val candidate = File(root, directoryName)
 
-            if (doomed.exists()) {
-                doomed.deleteRecursively()
+            if (Files.isSymbolicLink(candidate.toPath())) {
+                throw ProjectException("Symbolic-link directories cannot be deleted here.")
+            }
+            if (!candidate.isDirectory || candidate.canonicalFile.parentFile != root) {
+                throw ProjectException("Project folder not found.")
             }
 
-            if (!dir.renameTo(doomed)) {
-                throw IOException("Could not remove the project.")
+            val isValidProject = runCatching {
+                storage.readProject(candidate)
+            }.isSuccess
+            if (isValidProject) {
+                throw ProjectException("This project is not damaged.")
             }
 
-            doomed.deleteRecursively()
-            Unit
+            deleteProjectDirectorySafely(candidate)
+        }
+    }
+
+    /** Moves exactly one verified project directory out of the visible list, then deletes it. */
+    private fun deleteProjectDirectorySafely(directory: File) {
+        val root = storage.rootDir.canonicalFile
+        val canonicalDirectory = directory.canonicalFile
+
+        if (
+            Files.isSymbolicLink(directory.toPath()) ||
+            !canonicalDirectory.isDirectory ||
+            canonicalDirectory == root ||
+            canonicalDirectory.parentFile != root
+        ) {
+            throw ProjectException("Invalid project directory.")
+        }
+
+        // Use a unique destination. Never delete an existing directory to make room.
+        val doomed = File(
+            root,
+            "${ProjectStorage.DELETING_PREFIX}${UUID.randomUUID()}"
+        )
+        if (doomed.exists()) {
+            throw IOException("Could not prepare project deletion.")
+        }
+        if (!canonicalDirectory.renameTo(doomed)) {
+            throw IOException("Could not remove the project.")
+        }
+        if (!doomed.deleteRecursively()) {
+            throw IOException("The project was detached, but some files could not be deleted.")
         }
     }
 
@@ -199,6 +254,15 @@ class ProjectRepository(
     ): Result<List<FileEntry>> =
         runCatching {
             fileTree.listDirectory(projectId, relativePath)
+        }
+
+    /** Read-only preview of a text file inside a project. See [FileTreeReader.readTextPreview]. */
+    fun readFilePreview(
+        projectId: String,
+        relativePath: String
+    ): Result<FilePreview> =
+        runCatching {
+            fileTree.readTextPreview(projectId, relativePath)
         }
 
     // ---- helpers ----
