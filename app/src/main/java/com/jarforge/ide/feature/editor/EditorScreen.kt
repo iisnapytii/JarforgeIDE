@@ -3,13 +3,17 @@ package com.jarforge.ide.feature.editor
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalDrawerSheet
 import androidx.compose.material3.ModalNavigationDrawer
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberDrawerState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
@@ -27,8 +31,8 @@ import kotlinx.coroutines.launch
 /**
  * Editor of one project. Opened directly from a project card.
  *
- * Part 2D: top bar, File explorer drawer with the real project tree, and a read-only
- * file preview. Run, Build, Search and the code editor itself come in a later stage.
+ * Part 3.1a: top bar with Save action, File explorer drawer, basic text editing,
+ * and unsaved-changes confirmation guard.
  */
 @Composable
 fun EditorScreen(
@@ -46,9 +50,31 @@ fun EditorScreen(
 
     val projectName = (state.project as? ProjectLoad.Ready)?.project?.name
 
-    // The first system "back" closes the explorer; the next one leaves the editor.
+    LaunchedEffect(viewModel) {
+        viewModel.navigateBackEvents.collect {
+            onBack()
+        }
+    }
+
+    // The first system "back" closes the explorer; when closed, guard unsaved changes.
     BackHandler(enabled = drawerState.isOpen) {
         scope.launch { drawerState.close() }
+    }
+
+    BackHandler(enabled = !drawerState.isOpen && (state.hasUnsavedChanges || state.isSaving)) {
+        if (!state.isSaving) {
+            viewModel.onNavigateBackRequested()
+        }
+    }
+
+    state.pendingAction?.let {
+        UnsavedChangesDialog(
+            filePath = state.selectedPath ?: "Current file",
+            isSaving = state.isSaving,
+            onSave = viewModel::onSaveAndProceed,
+            onDiscard = viewModel::onDiscardAndProceed,
+            onCancel = viewModel::onDismissPendingAction
+        )
     }
 
     ModalNavigationDrawer(
@@ -64,8 +90,8 @@ fun EditorScreen(
                     selectedPath = state.selectedPath,
                     onFolderClick = viewModel::onFolderClicked,
                     onFileClick = { path ->
-                        viewModel.onFileClicked(path)
                         scope.launch { drawerState.close() }
+                        viewModel.onFileClicked(path)
                     },
                     onRefresh = viewModel::onRefresh,
                     onClose = { scope.launch { drawerState.close() } },
@@ -79,8 +105,16 @@ fun EditorScreen(
             topBar = {
                 JarforgeTopBar(
                     title = projectName ?: "Editor",
-                    onBack = onBack,
+                    onBack = viewModel::onNavigateBackRequested,
                     actions = {
+                        if (state.isTextEditable) {
+                            TopBarIconButton(
+                                iconRes = R.drawable.ic_save,
+                                contentDescription = "Save file",
+                                enabled = state.hasUnsavedChanges && !state.isSaving,
+                                onClick = viewModel::onSaveFile
+                            )
+                        }
                         TopBarIconButton(
                             iconRes = R.drawable.ic_folder,
                             contentDescription = "File explorer",
@@ -95,8 +129,57 @@ fun EditorScreen(
                 onOpenExplorer = { scope.launch { drawerState.open() } },
                 onRetryProject = viewModel::onRetryProject,
                 onRetryPreview = viewModel::onRetryPreview,
+                onContentChanged = viewModel::onContentChanged,
                 modifier = Modifier.padding(padding)
             )
         }
     }
+}
+
+@Composable
+private fun UnsavedChangesDialog(
+    filePath: String,
+    isSaving: Boolean,
+    onSave: () -> Unit,
+    onDiscard: () -> Unit,
+    onCancel: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = { if (!isSaving) onCancel() },
+        containerColor = JarforgeColors.Panel,
+        title = {
+            Text(text = "Unsaved changes")
+        },
+        text = {
+            Text(
+                text = "Save changes to \"$filePath\" before continuing?",
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        },
+        confirmButton = {
+            TextButton(
+                onClick = onSave,
+                enabled = !isSaving
+            ) {
+                Text(text = "Save")
+            }
+        },
+        dismissButton = {
+            TextButton(
+                onClick = onDiscard,
+                enabled = !isSaving
+            ) {
+                Text(
+                    text = "Don't save",
+                    color = JarforgeColors.Danger
+                )
+            }
+            TextButton(
+                onClick = onCancel,
+                enabled = !isSaving
+            ) {
+                Text(text = "Cancel")
+            }
+        }
+    )
 }

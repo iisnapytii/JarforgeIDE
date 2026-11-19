@@ -15,6 +15,13 @@ import java.io.File
 import java.io.IOException
 import java.nio.file.Files
 import java.util.UUID
+import kotlin.coroutines.cancellation.CancellationException
+
+data class FileWriteOutcome(
+    val sizeBytes: Long,
+    val updatedProject: Project?,
+    val metadataWarning: String?
+)
 
 /**
  * Project operations on top of the file system.
@@ -264,6 +271,54 @@ class ProjectRepository(
         runCatching {
             fileTree.readTextPreview(projectId, relativePath)
         }
+
+    /**
+     * Safely writes edited text content to a project file and updates project modifiedAtMillis.
+     *
+     * Cancellation before or during the atomic file write propagates normally.
+     * Once the file itself is atomically committed on disk, any subsequent failure or
+     * cancellation while updating project.json is isolated into [FileWriteOutcome.metadataWarning]
+     * so the editor never treats an already-saved file as unsaved.
+     */
+    fun writeFileContent(
+        projectId: String,
+        relativePath: String,
+        content: String
+    ): Result<FileWriteOutcome> {
+        return try {
+            synchronized(lock) {
+                val newSizeBytes = fileTree.writeTextFile(projectId, relativePath, content)
+
+                // File is now committed on disk. Isolate metadata update from file save result.
+                var updatedProject: Project? = null
+                var metadataWarning: String? = null
+                try {
+                    val dir = storage.projectDir(projectId)
+                    val currentProject = storage.readProject(dir)
+                    val updated = currentProject.copy(modifiedAtMillis = clock())
+                    storage.writeProject(dir, updated)
+                    updatedProject = updated
+                } catch (e: CancellationException) {
+                    metadataWarning = "File saved, but project timestamp update was interrupted."
+                } catch (e: Exception) {
+                    metadataWarning = e.message
+                        ?: "File saved, but project metadata could not be updated."
+                }
+
+                Result.success(
+                    FileWriteOutcome(
+                        sizeBytes = newSizeBytes,
+                        updatedProject = updatedProject,
+                        metadataWarning = metadataWarning
+                    )
+                )
+            }
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
 
     // ---- helpers ----
 
