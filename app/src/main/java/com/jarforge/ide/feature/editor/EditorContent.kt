@@ -1,15 +1,11 @@
 package com.jarforge.ide.feature.editor
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.input.TextFieldState
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
@@ -17,12 +13,10 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.jarforge.ide.data.model.FilePreview
 import com.jarforge.ide.ui.components.EmptyState
 import com.jarforge.ide.ui.components.ErrorState
@@ -36,6 +30,8 @@ import java.util.Locale
  * Part 3.1a: editable text field for UTF-8 text files within the size limit,
  * with unsaved indicator, save status, and error feedback.
  * Part 3.2.0: the field is backed by [TextFieldState] owned by the ViewModel.
+ * Part 3.2.1: the editing surface (line numbers, current-line highlight, text field)
+ * lives in [CodeEditorView].
  */
 @Composable
 fun EditorContent(
@@ -94,7 +90,7 @@ private fun EditorArea(
                 modifier = Modifier.weight(1f)
             )
             is PreviewState.Ready -> when (val file = preview.preview) {
-                is FilePreview.Text -> EditableCodeArea(
+                is FilePreview.Text -> CodeEditorView(
                     textState = textState,
                     modifier = Modifier.weight(1f)
                 )
@@ -178,45 +174,6 @@ private fun EditorHeader(path: String, state: EditorUiState) {
                 modifier = Modifier.padding(top = 2.dp)
             )
         }
-    }
-}
-
-@Composable
-private fun EditableCodeArea(
-    textState: TextFieldState,
-    modifier: Modifier = Modifier
-) {
-    val scrollState = rememberScrollState()
-    val codeStyle = MaterialTheme.typography.bodySmall.copy(
-        fontFamily = FontFamily.Monospace,
-        fontSize = 13.sp,
-        lineHeight = 18.sp,
-        color = JarforgeColors.TextPrimary
-    )
-
-    // The field scrolls itself through the hoisted [scrollState]; there is no outer
-    // verticalScroll. Padding sits outside the field, so it stays fixed while text scrolls.
-    Box(
-        modifier = modifier
-            .fillMaxSize()
-            .background(JarforgeColors.EditorBackground)
-            .imePadding()
-            .padding(horizontal = 12.dp, vertical = 10.dp)
-    ) {
-        if (textState.text.isEmpty()) {
-            Text(
-                text = "Empty file — tap here to start typing...",
-                style = codeStyle,
-                color = JarforgeColors.TextSecondary
-            )
-        }
-        BasicTextField(
-            state = textState,
-            textStyle = codeStyle,
-            cursorBrush = SolidColor(JarforgeColors.Blue),
-            scrollState = scrollState,
-            modifier = Modifier.fillMaxSize()
-        )
     }
 }
 
