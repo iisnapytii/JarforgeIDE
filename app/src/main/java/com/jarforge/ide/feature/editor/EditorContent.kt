@@ -10,7 +10,7 @@ import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.BasicTextField
-import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.text.input.TextFieldState
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -35,6 +35,7 @@ import java.util.Locale
  *
  * Part 3.1a: editable text field for UTF-8 text files within the size limit,
  * with unsaved indicator, save status, and error feedback.
+ * Part 3.2.0: the field is backed by [TextFieldState] owned by the ViewModel.
  */
 @Composable
 fun EditorContent(
@@ -42,7 +43,7 @@ fun EditorContent(
     onOpenExplorer: () -> Unit,
     onRetryProject: () -> Unit,
     onRetryPreview: () -> Unit,
-    onContentChanged: (String) -> Unit,
+    textState: TextFieldState,
     modifier: Modifier = Modifier
 ) {
     Box(modifier = modifier.fillMaxSize()) {
@@ -56,7 +57,7 @@ fun EditorContent(
                 state = state,
                 onOpenExplorer = onOpenExplorer,
                 onRetryPreview = onRetryPreview,
-                onContentChanged = onContentChanged
+                textState = textState
             )
         }
     }
@@ -67,7 +68,7 @@ private fun EditorArea(
     state: EditorUiState,
     onOpenExplorer: () -> Unit,
     onRetryPreview: () -> Unit,
-    onContentChanged: (String) -> Unit
+    textState: TextFieldState
 ) {
     val path = state.selectedPath
     if (path == null) {
@@ -94,8 +95,7 @@ private fun EditorArea(
             )
             is PreviewState.Ready -> when (val file = preview.preview) {
                 is FilePreview.Text -> EditableCodeArea(
-                    content = state.editorContent,
-                    onContentChanged = onContentChanged,
+                    textState = textState,
                     modifier = Modifier.weight(1f)
                 )
                 is FilePreview.TooLarge -> EditorMessage(
@@ -183,8 +183,7 @@ private fun EditorHeader(path: String, state: EditorUiState) {
 
 @Composable
 private fun EditableCodeArea(
-    content: String,
-    onContentChanged: (String) -> Unit,
+    textState: TextFieldState,
     modifier: Modifier = Modifier
 ) {
     val scrollState = rememberScrollState()
@@ -195,30 +194,30 @@ private fun EditableCodeArea(
         color = JarforgeColors.TextPrimary
     )
 
-    BasicTextField(
-        value = content,
-        onValueChange = onContentChanged,
-        textStyle = codeStyle,
-        cursorBrush = SolidColor(JarforgeColors.Blue),
+    // The field scrolls itself through the hoisted [scrollState]; there is no outer
+    // verticalScroll. Padding sits outside the field, so it stays fixed while text scrolls.
+    Box(
         modifier = modifier
             .fillMaxSize()
             .background(JarforgeColors.EditorBackground)
             .imePadding()
-            .verticalScroll(scrollState)
-            .padding(horizontal = 12.dp, vertical = 10.dp),
-        decorationBox = { innerTextField ->
-            Box(modifier = Modifier.fillMaxSize()) {
-                if (content.isEmpty()) {
-                    Text(
-                        text = "Empty file — tap here to start typing...",
-                        style = codeStyle,
-                        color = JarforgeColors.TextSecondary
-                    )
-                }
-                innerTextField()
-            }
+            .padding(horizontal = 12.dp, vertical = 10.dp)
+    ) {
+        if (textState.text.isEmpty()) {
+            Text(
+                text = "Empty file — tap here to start typing...",
+                style = codeStyle,
+                color = JarforgeColors.TextSecondary
+            )
         }
-    )
+        BasicTextField(
+            state = textState,
+            textStyle = codeStyle,
+            cursorBrush = SolidColor(JarforgeColors.Blue),
+            scrollState = scrollState,
+            modifier = Modifier.fillMaxSize()
+        )
+    }
 }
 
 @Composable

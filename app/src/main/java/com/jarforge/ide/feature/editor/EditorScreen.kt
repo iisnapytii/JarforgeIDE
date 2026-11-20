@@ -129,7 +129,7 @@ fun EditorScreen(
                 onOpenExplorer = { scope.launch { drawerState.open() } },
                 onRetryProject = viewModel::onRetryProject,
                 onRetryPreview = viewModel::onRetryPreview,
-                onContentChanged = viewModel::onContentChanged,
+                textState = viewModel.textState.fieldState,
                 modifier = Modifier.padding(padding)
             )
         }

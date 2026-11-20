@@ -60,6 +60,9 @@ data class EditorUiState(
 
 /**
  * State of the editor screen for one project.
+ *
+ * The live text, cursor/selection and undo history of the open file are owned by
+ * [textState]. [EditorUiState.editorContent] mirrors that text for dirty tracking and saving.
  */
 class EditorViewModel(
     private val repository: ProjectRepository,
@@ -72,7 +75,15 @@ class EditorViewModel(
     private val _navigateBackEvents = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
     val navigateBackEvents: SharedFlow<Unit> = _navigateBackEvents.asSharedFlow()
 
+    /** Live text, selection and undo history. Survives configuration changes with this ViewModel. */
+    val textState = EditorTextState()
+
     init {
+        // Mirror user edits into editorContent (dirty tracking). The mirror is one-way:
+        // the ViewModel never writes text back to the field while the user is typing.
+        viewModelScope.launch {
+            textState.textChanges().collect { text -> onContentChanged(text) }
+        }
         loadProject()
         loadDirectory(ROOT_PATH)
     }
@@ -119,6 +130,7 @@ class EditorViewModel(
 
     /** Re-reads the root and every expanded folder, and the open file. */
     fun onRefresh() {
+        syncEditorContentFromField()
         val current = _uiState.value
         if (current.isSaving) return
         if (current.hasUnsavedChanges) {
@@ -180,6 +192,7 @@ class EditorViewModel(
     // ---- file loading & editing ----
 
     fun onFileClicked(path: String) {
+        syncEditorContentFromField()
         val current = _uiState.value
         if (current.isSaving) return
         if (current.selectedPath == path && current.preview !is PreviewState.Failed) {
@@ -193,6 +206,8 @@ class EditorViewModel(
     }
 
     private fun openFileInternal(path: String) {
+        // Start the new file from a clean field: no stale text, no old undo history.
+        textState.load("")
         _uiState.update {
             it.copy(
                 selectedPath = path,
@@ -211,6 +226,7 @@ class EditorViewModel(
         val current = _uiState.value
         if (current.isSaving) return
         val path = current.selectedPath ?: return
+        textState.load("")
         _uiState.update {
             it.copy(
                 preview = PreviewState.Loading,
@@ -228,8 +244,19 @@ class EditorViewModel(
             val result = withContext(Dispatchers.IO) {
                 repository.readFilePreview(projectId, path)
             }
+            // Ignore a late result for a file that is no longer selected.
+            if (_uiState.value.selectedPath != path) return@launch
+
+            // Put the loaded text into the field first, then publish the new UI state.
+            // Refreshing an unchanged file keeps cursor and undo history.
+            val loadedText = (result.getOrNull() as? FilePreview.Text)?.content
+            if (loadedText != null) {
+                textState.replaceIfDifferent(loadedText)
+            } else {
+                textState.load("")
+            }
+
             _uiState.update { state ->
-                // Ignore a late result for a file that is no longer selected.
                 if (state.selectedPath != path) {
                     state
                 } else {
@@ -274,7 +301,24 @@ class EditorViewModel(
         }
     }
 
+    /**
+     * Pulls the current field text into [EditorUiState.editorContent] right now, so decisions
+     * made on a button press never rely on the asynchronous mirror. Does not touch saveError
+     * unless the text really differs.
+     */
+    private fun syncEditorContentFromField() {
+        val text = textState.currentText()
+        _uiState.update { state ->
+            if (!state.isTextEditable || state.editorContent == text) {
+                state
+            } else {
+                state.copy(editorContent = text, saveError = null)
+            }
+        }
+    }
+
     fun onSaveFile() {
+        syncEditorContentFromField()
         val current = _uiState.value
         if (current.isSaving || !current.hasUnsavedChanges) return
         saveCurrentFile(pendingActionAfterSave = null)
@@ -283,6 +327,7 @@ class EditorViewModel(
     // ---- unsaved changes guard & pending actions ----
 
     fun onNavigateBackRequested() {
+        syncEditorContentFromField()
         val current = _uiState.value
         if (current.isSaving) return
         if (current.hasUnsavedChanges) {
@@ -302,6 +347,8 @@ class EditorViewModel(
         val current = _uiState.value
         if (current.isSaving) return
         val action = current.pendingAction ?: return
+        // Discarding resets the field to the last saved text (and clears its undo history).
+        textState.load(current.savedContent)
         _uiState.update {
             it.copy(
                 editorContent = it.savedContent,
@@ -326,6 +373,7 @@ class EditorViewModel(
     }
 
     private fun saveCurrentFile(pendingActionAfterSave: PendingEditorAction?) {
+        syncEditorContentFromField()
         val snapshot = _uiState.value
         val path = snapshot.selectedPath ?: return
         if (snapshot.isSaving || !snapshot.isTextEditable) return
@@ -360,6 +408,9 @@ class EditorViewModel(
                 outcomeResult.fold(
                     onSuccess = {
                         if (pendingActionAfterSave != null) {
+                            // The mirror of the field text may lag by one dispatch; refresh it
+                            // so an edit made during the save is never missed.
+                            syncEditorContentFromField()
                             val latest = _uiState.value
                             // Only proceed if the file is still selected and user did not type new edits during save.
                             if (latest.selectedPath == path && !latest.hasUnsavedChanges) {
