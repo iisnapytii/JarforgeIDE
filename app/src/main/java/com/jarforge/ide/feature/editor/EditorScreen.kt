@@ -111,7 +111,8 @@ fun EditorScreen(
                             TopBarIconButton(
                                 iconRes = R.drawable.ic_save,
                                 contentDescription = "Save file",
-                                enabled = state.hasUnsavedChanges && !state.isSaving,
+                                // Save handles stale dirty-state mirrors by syncing the field first.
+                                enabled = !state.isSaving,
                                 onClick = viewModel::onSaveFile
                             )
                         }
