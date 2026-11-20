@@ -1,5 +1,6 @@
 package com.jarforge.ide.feature.editor
 
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.text.input.TextFieldState
 import androidx.compose.runtime.snapshotFlow
 import kotlinx.coroutines.flow.Flow
@@ -15,6 +16,7 @@ import kotlinx.coroutines.flow.flow
  *
  * All functions that change text must be called on the main thread.
  */
+@OptIn(ExperimentalFoundationApi::class)
 class EditorTextState {
 
     val fieldState = TextFieldState()
