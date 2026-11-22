@@ -1,6 +1,7 @@
 package com.jarforge.ide.feature.editor
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.AlertDialog
@@ -130,8 +131,10 @@ fun EditorScreen(
                 onOpenExplorer = { scope.launch { drawerState.open() } },
                 onRetryProject = viewModel::onRetryProject,
                 onRetryPreview = viewModel::onRetryPreview,
-                textState = viewModel.textState.fieldState,
-                modifier = Modifier.padding(padding)
+                editorText = viewModel.textState,
+                // Consume the Scaffold padding so imePadding() inside the editor adds only the
+                // keyboard height that is not already covered (no double bottom gap).
+                modifier = Modifier.padding(padding).consumeWindowInsets(padding)
             )
         }
     }

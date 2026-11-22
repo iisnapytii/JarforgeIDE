@@ -1,18 +1,26 @@
 package com.jarforge.ide.feature.editor
 
+import android.os.SystemClock
+import android.view.KeyEvent
+import android.view.View
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsFocusedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.text.input.TextFieldState
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -29,9 +37,11 @@ import java.util.Locale
  *
  * Part 3.1a: editable text field for UTF-8 text files within the size limit,
  * with unsaved indicator, save status, and error feedback.
- * Part 3.2.0: the field is backed by [TextFieldState] owned by the ViewModel.
+ * Part 3.2.0: the field is backed by a TextFieldState owned by the ViewModel ([EditorTextState]).
  * Part 3.2.1: the editing surface (line numbers, current-line highlight, text field)
  * lives in [CodeEditorView].
+ * Part 3.2.2: Undo/Redo and the symbol toolbar ([EditorToolbar]), shown above the keyboard
+ * while the text field has focus.
  */
 @Composable
 fun EditorContent(
@@ -39,7 +49,7 @@ fun EditorContent(
     onOpenExplorer: () -> Unit,
     onRetryProject: () -> Unit,
     onRetryPreview: () -> Unit,
-    textState: TextFieldState,
+    editorText: EditorTextState,
     modifier: Modifier = Modifier
 ) {
     Box(modifier = modifier.fillMaxSize()) {
@@ -53,7 +63,7 @@ fun EditorContent(
                 state = state,
                 onOpenExplorer = onOpenExplorer,
                 onRetryPreview = onRetryPreview,
-                textState = textState
+                editorText = editorText
             )
         }
     }
@@ -64,7 +74,7 @@ private fun EditorArea(
     state: EditorUiState,
     onOpenExplorer: () -> Unit,
     onRetryPreview: () -> Unit,
-    textState: TextFieldState
+    editorText: EditorTextState
 ) {
     val path = state.selectedPath
     if (path == null) {
@@ -90,8 +100,8 @@ private fun EditorArea(
                 modifier = Modifier.weight(1f)
             )
             is PreviewState.Ready -> when (val file = preview.preview) {
-                is FilePreview.Text -> CodeEditorView(
-                    textState = textState,
+                is FilePreview.Text -> EditorWorkspace(
+                    editorText = editorText,
                     modifier = Modifier.weight(1f)
                 )
                 is FilePreview.TooLarge -> EditorMessage(
@@ -109,6 +119,65 @@ private fun EditorArea(
             }
         }
     }
+}
+
+/**
+ * The editing surface together with the symbol toolbar.
+ *
+ * imePadding() is applied once, here, to both, so the toolbar always sits directly above the
+ * keyboard. The toolbar is shown only while the text field has focus.
+ */
+@Composable
+private fun EditorWorkspace(
+    editorText: EditorTextState,
+    modifier: Modifier = Modifier
+) {
+    val interactionSource = remember { MutableInteractionSource() }
+    val focused by interactionSource.collectIsFocusedAsState()
+    val view = LocalView.current
+
+    // Reading the text subscribes this composable to every edit, so the Undo/Redo state is
+    // re-read after each change even if the history flags were not observable on their own.
+    @Suppress("UNUSED_VARIABLE")
+    val observedText = editorText.fieldState.text
+
+    Column(modifier = modifier.imePadding()) {
+        CodeEditorView(
+            textState = editorText.fieldState,
+            interactionSource = interactionSource,
+            modifier = Modifier.weight(1f)
+        )
+        if (focused) {
+            EditorToolbar(
+                canUndo = editorText.canUndo,
+                canRedo = editorText.canRedo,
+                onUndo = editorText::undo,
+                onRedo = editorText::redo,
+                onKey = { key -> handleToolbarKey(key, editorText, view) }
+            )
+        }
+    }
+}
+
+private fun handleToolbarKey(key: EditorKey, editorText: EditorTextState, view: View) {
+    when (key) {
+        is EditorKey.Symbol -> editorText.insertText(key.text)
+        is EditorKey.SymbolPair -> editorText.insertPair(key.open, key.close)
+        EditorKey.Tab -> editorText.insertText(EditorTextOps.INDENT)
+        EditorKey.CursorLeft -> dispatchCursorKey(view, KeyEvent.KEYCODE_DPAD_LEFT)
+        EditorKey.CursorRight -> dispatchCursorKey(view, KeyEvent.KEYCODE_DPAD_RIGHT)
+    }
+}
+
+/**
+ * Moves the cursor by sending the same arrow key a hardware keyboard would send to the
+ * focused text field. The text field handles it itself: the text is not touched, no undo
+ * entry is created, and with a selection the cursor collapses to its start or end.
+ */
+private fun dispatchCursorKey(view: View, keyCode: Int) {
+    val now = SystemClock.uptimeMillis()
+    view.dispatchKeyEvent(KeyEvent(now, now, KeyEvent.ACTION_DOWN, keyCode, 0))
+    view.dispatchKeyEvent(KeyEvent(now, now, KeyEvent.ACTION_UP, keyCode, 0))
 }
 
 @Composable

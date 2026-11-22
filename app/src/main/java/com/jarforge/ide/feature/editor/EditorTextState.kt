@@ -1,8 +1,10 @@
 package com.jarforge.ide.feature.editor
 
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.text.input.TextFieldBuffer
 import androidx.compose.foundation.text.input.TextFieldState
 import androidx.compose.runtime.snapshotFlow
+import androidx.compose.ui.text.TextRange
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 
@@ -13,6 +15,9 @@ import kotlinx.coroutines.flow.flow
  * [EditorUiState.editorContent] is only a mirror of the text, kept for unsaved-changes
  * tracking and saving. The ViewModel writes into this object only when a file is loaded,
  * reset or discarded, never while the user is typing.
+ *
+ * Undo and Redo use the built-in history of [fieldState]. The text they change reaches the
+ * ViewModel through [textChanges] like any other edit, so nothing is written back.
  *
  * All functions that change text must be called on the main thread.
  */
@@ -44,6 +49,53 @@ class EditorTextState {
         if (currentText() != text) {
             load(text)
         }
+    }
+
+    /** Whether there is an edit to undo. Read in composition, it updates the UI by itself. */
+    val canUndo: Boolean get() = fieldState.undoState.canUndo
+
+    /** Whether there is an undone edit to redo. */
+    val canRedo: Boolean get() = fieldState.undoState.canRedo
+
+    /** Reverts the latest edit, or the latest group of merged edits. Does nothing if none. */
+    fun undo() {
+        val history = fieldState.undoState
+        if (history.canUndo) history.undo()
+    }
+
+    /** Re-applies the edit that was just undone. Does nothing if none. */
+    fun redo() {
+        val history = fieldState.undoState
+        if (history.canRedo) history.redo()
+    }
+
+    /**
+     * Inserts [text] at the cursor, replacing the selection. One call is one undo entry.
+     * The selection is read inside the edit, so it is always the current one.
+     */
+    fun insertText(text: String) {
+        fieldState.edit {
+            val current = selection
+            applyEdit(EditorTextOps.insertText(text, current.start, current.end, length))
+        }
+    }
+
+    /**
+     * Inserts [open] and [close] around the cursor or the selection, as one undo entry.
+     * See [EditorTextOps.insertPair] for the exact rules.
+     */
+    fun insertPair(open: String, close: String) {
+        fieldState.edit {
+            val current = selection
+            applyEdit(EditorTextOps.insertPair(open, close, current.start, current.end, length))
+        }
+    }
+
+    private fun TextFieldBuffer.applyEdit(edit: TextEdit) {
+        for (replacement in edit.replacements) {
+            replace(replacement.start, replacement.end, replacement.text)
+        }
+        selection = TextRange(edit.selectionStart, edit.selectionEnd)
     }
 
     /**

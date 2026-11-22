@@ -3,11 +3,11 @@ package com.jarforge.ide.feature.editor
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
@@ -59,13 +59,17 @@ private val TextEndPadding = 12.dp
  *   recomposing the editor.
  * - Soft-wrapped lines get one number, at their first visual line.
  *
- * This is the single place the editor surface lives; later stages (undo toolbar, syntax
- * highlighting) extend it without touching the screen or the ViewModel.
+ * The keyboard inset is NOT handled here: the parent applies imePadding() to this view and
+ * the symbol toolbar together. [interactionSource] lets the parent observe the field's focus.
+ *
+ * This is the single place the editor surface lives; later stages (syntax highlighting,
+ * auto-indent) extend it without touching the screen or the ViewModel.
  */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun CodeEditorView(
     textState: TextFieldState,
+    interactionSource: MutableInteractionSource,
     modifier: Modifier = Modifier
 ) {
     val scrollState = rememberScrollState()
@@ -112,7 +116,6 @@ fun CodeEditorView(
         modifier = modifier
             .fillMaxSize()
             .background(JarforgeColors.EditorBackground)
-            .imePadding()
             .padding(vertical = EditorVerticalPadding)
             .clipToBounds()
             .drawBehind {
@@ -166,6 +169,7 @@ fun CodeEditorView(
                 textStyle = codeStyle,
                 cursorBrush = SolidColor(JarforgeColors.Blue),
                 scrollState = scrollState,
+                interactionSource = interactionSource,
                 onTextLayout = { getResult ->
                     if (layoutProvider !== getResult) {
                         layoutProvider = getResult
