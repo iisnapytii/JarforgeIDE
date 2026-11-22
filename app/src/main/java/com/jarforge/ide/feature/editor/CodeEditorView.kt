@@ -62,8 +62,11 @@ private val TextEndPadding = 12.dp
  * The keyboard inset is NOT handled here: the parent applies imePadding() to this view and
  * the symbol toolbar together. [interactionSource] lets the parent observe the field's focus.
  *
- * This is the single place the editor surface lives; later stages (syntax highlighting,
- * auto-indent) extend it without touching the screen or the ViewModel.
+ * Pressing Enter continues the indentation ([AutoIndentTransformation]); everything else the
+ * user types or pastes is left as it is.
+ *
+ * This is the single place the editor surface lives; later stages (syntax highlighting)
+ * extend it without touching the screen or the ViewModel.
  */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -170,6 +173,7 @@ fun CodeEditorView(
                 cursorBrush = SolidColor(JarforgeColors.Blue),
                 scrollState = scrollState,
                 interactionSource = interactionSource,
+                inputTransformation = AutoIndentTransformation,
                 onTextLayout = { getResult ->
                     if (layoutProvider !== getResult) {
                         layoutProvider = getResult
