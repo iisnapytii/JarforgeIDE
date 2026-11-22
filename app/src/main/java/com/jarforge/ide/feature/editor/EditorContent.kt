@@ -42,7 +42,7 @@ import java.util.Locale
  * lives in [CodeEditorView].
  * Part 3.2.2: Undo/Redo and the symbol toolbar ([EditorToolbar]), shown above the keyboard
  * while the text field has focus.
- * Part 3.2.4: Java files (.java) get syntax highlighting; other files stay plain.
+ * Part 3.2.5: Java, TOML and Markdown files use their language-specific syntax highlighters.
  */
 @Composable
 fun EditorContent(
@@ -103,7 +103,7 @@ private fun EditorArea(
             is PreviewState.Ready -> when (val file = preview.preview) {
                 is FilePreview.Text -> EditorWorkspace(
                     editorText = editorText,
-                    highlightJava = path.endsWith(".java", ignoreCase = true),
+                    language = EditorLanguage.fromPath(path),
                     modifier = Modifier.weight(1f)
                 )
                 is FilePreview.TooLarge -> EditorMessage(
@@ -132,7 +132,7 @@ private fun EditorArea(
 @Composable
 private fun EditorWorkspace(
     editorText: EditorTextState,
-    highlightJava: Boolean,
+    language: EditorLanguage,
     modifier: Modifier = Modifier
 ) {
     val interactionSource = remember { MutableInteractionSource() }
@@ -149,7 +149,7 @@ private fun EditorWorkspace(
             textState = editorText.fieldState,
             interactionSource = interactionSource,
             modifier = Modifier.weight(1f),
-            highlightJava = highlightJava
+            language = language
         )
         if (focused) {
             EditorToolbar(

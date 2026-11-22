@@ -334,6 +334,11 @@ internal object SyntaxColors {
     val Number = Color(0xFF79C0FF)
     val Operator = Color(0xFF7EE787)
     val Annotation = Color(0xFFD2A8FF)
+    val Key = Color(0xFF56D4DD)
+    val Bold = Color(0xFFF2CC60)
+    val Italic = Color(0xFFFFB3D9)
+    val Link = Color(0xFF58A6FF)
+    val Quote = Color(0xFF7D8590)
 }
 
 /**
