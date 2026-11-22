@@ -65,7 +65,11 @@ private val TextEndPadding = 12.dp
  * Pressing Enter continues the indentation ([AutoIndentTransformation]); everything else the
  * user types or pastes is left as it is.
  *
- * This is the single place the editor surface lives; later stages (syntax highlighting)
+ * With [highlightJava] the displayed text is colored by [JavaHighlightTransformation]. This is
+ * visual only: the text in [textState] is never changed, and only colors are applied, so
+ * wrapping, line numbers and the cursor are not affected.
+ *
+ * This is the single place the editor surface lives; later stages
  * extend it without touching the screen or the ViewModel.
  */
 @OptIn(ExperimentalFoundationApi::class)
@@ -73,7 +77,8 @@ private val TextEndPadding = 12.dp
 fun CodeEditorView(
     textState: TextFieldState,
     interactionSource: MutableInteractionSource,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    highlightJava: Boolean = false
 ) {
     val scrollState = rememberScrollState()
     val density = LocalDensity.current
@@ -174,6 +179,7 @@ fun CodeEditorView(
                 scrollState = scrollState,
                 interactionSource = interactionSource,
                 inputTransformation = AutoIndentTransformation,
+                outputTransformation = if (highlightJava) JavaHighlightTransformation else null,
                 onTextLayout = { getResult ->
                     if (layoutProvider !== getResult) {
                         layoutProvider = getResult
