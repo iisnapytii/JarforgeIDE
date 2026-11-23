@@ -31,6 +31,16 @@ class MarkdownSyntaxHighlighterTest {
   assertFalse(tokens("```bad`info\nx\n```").any{it.first=="x"&&it.second==MarkdownTokenKind.CODE_BLOCK})
   assertFalse(tokens("\t```\nx\n```").any{it.first=="x"&&it.second==MarkdownTokenKind.CODE_BLOCK})
  }
+ @Test fun largeInputIsFast(){
+  val line = "# heading\n- item\n**bold**\n"
+  val src = line.repeat(MarkdownSyntaxHighlighter.MAX_HIGHLIGHT_LENGTH / line.length)
+  val started = System.nanoTime()
+  var count = 0
+  MarkdownSyntaxHighlighter.tokenize(src){_,_,_->count++}
+  val millis = (System.nanoTime() - started) / 1_000_000
+  assertTrue("expected tokens", count > 0)
+  assertTrue("Markdown tokenization took $millis ms", millis < 2_000)
+ }
  @Test fun limitsLfCrLfAndFuzz(){
   val lf="# hi\n- item\n```\nx\n```";val crlf=lf.replace("\n","\r\n")
   assertEquals(tokens(lf).map{it.first to it.second},tokens(crlf).map{it.first to it.second})

@@ -61,7 +61,8 @@ object AutoIndent {
         // Last visible character before the cursor (trailing blanks ignored).
         var last = newlinePos - 1
         while (last >= lineStart && isBlank(text[last])) last--
-        val opensBlock = last >= lineStart && text[last] == '{'
+        val inLineComment = isInsideComment(text, lineStart, newlinePos)
+        val opensBlock = !inLineComment && last >= lineStart && text[last] == '{'
 
         // First visible character after the cursor on the same line. Only blanks are
         // skipped, so '\r' or '\n' stop the look-ahead and are never mistaken for '}'.
@@ -72,7 +73,7 @@ object AutoIndent {
             closeIdx++
             if (++scanned > MAX_SCAN) return null
         }
-        val closesBlock = closeIdx < length && text[closeIdx] == '}'
+        val closesBlock = !inLineComment && closeIdx < length && text[closeIdx] == '}'
         val blankAfterCursor = afterStart < length && isBlank(text[afterStart])
 
         val eol = if (usesCrLf(text, newlinePos, lineStart)) "\r\n" else "\n"
@@ -140,6 +141,42 @@ object AutoIndent {
             removed++
         }
         return base.substring(0, end)
+    }
+
+    /** Detects line and block comments outside quoted strings on the current line. */
+    private fun isInsideComment(text: CharSequence, start: Int, end: Int): Boolean {
+        var quote: Char? = null
+        var escaped = false
+        var inBlockComment = false
+        var index = start
+        while (index < end) {
+            val char = text[index]
+            val next = if (index + 1 < end) text[index + 1] else '\u0000'
+            if (inBlockComment) {
+                if (char == '*' && next == '/') {
+                    inBlockComment = false
+                    index++
+                }
+            } else if (quote != null) {
+                when {
+                    escaped -> escaped = false
+                    char == '\\' -> escaped = true
+                    char == quote -> quote = null
+                }
+            } else {
+                when {
+                    char == '\'' || char == '"' -> quote = char
+                    char == '#' -> return true
+                    char == '/' && next == '/' -> return true
+                    char == '/' && next == '*' -> {
+                        inBlockComment = true
+                        index++
+                    }
+                }
+            }
+            index++
+        }
+        return inBlockComment
     }
 
     /**

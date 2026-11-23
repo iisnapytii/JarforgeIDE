@@ -78,6 +78,9 @@ class EditorViewModel(
     /** Live text, selection and undo history. Survives configuration changes with this ViewModel. */
     val textState = EditorTextState()
 
+    // Distinguishes overlapping refresh/retry requests for the same selected path.
+    private var previewLoadGeneration: Long = 0L
+
     init {
         // Mirror user edits into editorContent (dirty tracking). The mirror is one-way:
         // the ViewModel never writes text back to the field while the user is typing.
@@ -240,12 +243,15 @@ class EditorViewModel(
     }
 
     private fun loadPreview(path: String) {
+        val requestGeneration = ++previewLoadGeneration
         viewModelScope.launch {
             val result = withContext(Dispatchers.IO) {
                 repository.readFilePreview(projectId, path)
             }
             // Ignore a late result for a file that is no longer selected.
-            if (_uiState.value.selectedPath != path) return@launch
+            if (_uiState.value.selectedPath != path ||
+                previewLoadGeneration != requestGeneration
+            ) return@launch
 
             // Put the loaded text into the field first, then publish the new UI state.
             // Refreshing an unchanged file keeps cursor and undo history.

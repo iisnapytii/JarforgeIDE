@@ -204,6 +204,6 @@ class FileTreeReader(private val storage: ProjectStorage) {
     }
 
     companion object {
-        const val MAX_EDITABLE_BYTES: Int = 256 * 1024
+        const val MAX_EDITABLE_BYTES: Int = FilePreview.MAX_BYTES
     }
 }

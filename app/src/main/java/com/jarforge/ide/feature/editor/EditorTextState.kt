@@ -5,6 +5,7 @@ import androidx.compose.foundation.text.input.TextFieldBuffer
 import androidx.compose.foundation.text.input.TextFieldState
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.text.TextRange
+import com.jarforge.ide.data.model.FilePreview
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 
@@ -22,7 +23,7 @@ import kotlinx.coroutines.flow.flow
  * All functions that change text must be called on the main thread.
  */
 @OptIn(ExperimentalFoundationApi::class)
-class EditorTextState {
+class EditorTextState(private val maxUtf8Bytes: Int = FilePreview.MAX_BYTES) {
 
     val fieldState = TextFieldState()
 
@@ -71,24 +72,46 @@ class EditorTextState {
 
     /**
      * Inserts [text] at the cursor, replacing the selection. One call is one undo entry.
-     * The selection is read inside the edit, so it is always the current one.
+     * The selection is read inside the edit, so it is always the current one. Returns false
+     * without changing the field when the resulting UTF-8 text would exceed [maxUtf8Bytes].
      */
-    fun insertText(text: String) {
+    fun insertText(text: String): Boolean {
+        var applied = false
         fieldState.edit {
             val current = selection
-            applyEdit(EditorTextOps.insertText(text, current.start, current.end, length))
+            val edit = EditorTextOps.insertText(text, current.start, current.end, length)
+            if (fitsWithinLimit(edit)) {
+                applyEdit(edit)
+                applied = true
+            }
         }
+        return applied
     }
 
     /**
      * Inserts [open] and [close] around the cursor or the selection, as one undo entry.
-     * See [EditorTextOps.insertPair] for the exact rules.
+     * See [EditorTextOps.insertPair] for the exact rules. Returns false without changing the
+     * field when the resulting UTF-8 text would exceed [maxUtf8Bytes].
      */
-    fun insertPair(open: String, close: String) {
+    fun insertPair(open: String, close: String): Boolean {
+        var applied = false
         fieldState.edit {
             val current = selection
-            applyEdit(EditorTextOps.insertPair(open, close, current.start, current.end, length))
+            val edit = EditorTextOps.insertPair(open, close, current.start, current.end, length)
+            if (fitsWithinLimit(edit)) {
+                applyEdit(edit)
+                applied = true
+            }
         }
+        return applied
+    }
+
+    private fun TextFieldBuffer.fitsWithinLimit(edit: TextEdit): Boolean {
+        val candidate = StringBuilder(asCharSequence())
+        for (replacement in edit.replacements) {
+            candidate.replace(replacement.start, replacement.end, replacement.text)
+        }
+        return utf8ByteCount(candidate, maxUtf8Bytes) <= maxUtf8Bytes
     }
 
     private fun TextFieldBuffer.applyEdit(edit: TextEdit) {

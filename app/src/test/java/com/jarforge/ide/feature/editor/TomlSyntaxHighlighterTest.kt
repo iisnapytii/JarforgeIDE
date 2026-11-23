@@ -32,6 +32,15 @@ class TomlSyntaxHighlighterTest {
   assertTrue(has("config = { nested = { active = true } }","true",TomlTokenKind.BOOLEAN))
   assertTrue(tokens("x=[1\ny=2").any{it.first=="y"&&it.second==TomlTokenKind.KEY})
  }
+ @Test fun largeInputIsFast(){
+  val src = "key = 123 # comment\n".repeat(TomlSyntaxHighlighter.MAX_HIGHLIGHT_LENGTH / 20)
+  val started = System.nanoTime()
+  var count = 0
+  TomlSyntaxHighlighter.tokenize(src){_,_,_->count++}
+  val millis = (System.nanoTime() - started) / 1_000_000
+  assertTrue("expected tokens", count > 0)
+  assertTrue("TOML tokenization took $millis ms", millis < 2_000)
+ }
  @Test fun invariantsLfCrLfAndLimits(){
   val lf="x = 1979-05-27 07:32:00Z\ny = [1, 2]";val crlf=lf.replace("\n","\r\n")
   assertEquals(tokens(lf).map{it.first to it.second},tokens(crlf).map{it.first to it.second})

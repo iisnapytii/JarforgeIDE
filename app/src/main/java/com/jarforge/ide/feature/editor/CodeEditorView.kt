@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.input.TextFieldState
+import androidx.compose.foundation.text.input.then
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -178,7 +179,7 @@ fun CodeEditorView(
                 cursorBrush = SolidColor(JarforgeColors.Blue),
                 scrollState = scrollState,
                 interactionSource = interactionSource,
-                inputTransformation = AutoIndentTransformation,
+                inputTransformation = AutoIndentTransformation.then(Utf8FileSizeTransformation),
                 outputTransformation = when (language) {
                     EditorLanguage.JAVA -> JavaHighlightTransformation
                     EditorLanguage.TOML -> TomlHighlightTransformation
