@@ -184,6 +184,7 @@ fun CodeEditorView(
                     EditorLanguage.JAVA -> JavaHighlightTransformation
                     EditorLanguage.TOML -> TomlHighlightTransformation
                     EditorLanguage.MARKDOWN -> MarkdownHighlightTransformation
+                    EditorLanguage.JSON -> JsonHighlightTransformation
                     EditorLanguage.PLAIN -> null
                 },
                 onTextLayout = { getResult ->
