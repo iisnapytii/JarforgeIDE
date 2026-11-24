@@ -185,6 +185,8 @@ fun CodeEditorView(
                     EditorLanguage.TOML -> TomlHighlightTransformation
                     EditorLanguage.MARKDOWN -> MarkdownHighlightTransformation
                     EditorLanguage.JSON -> JsonHighlightTransformation
+                    EditorLanguage.GRADLE -> GradleScriptHighlightTransformation
+                    EditorLanguage.GRADLE_PROPERTIES -> GradlePropertiesHighlightTransformation
                     EditorLanguage.PLAIN -> null
                 },
                 onTextLayout = { getResult ->
